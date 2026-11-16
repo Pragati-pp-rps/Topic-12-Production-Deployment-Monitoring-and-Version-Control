@@ -1,0 +1,148 @@
+{
+  "name": "Topic 12 - Production Error Monitoring",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "384d6fed-fe89-4bcc-b40a-242d407158a6",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nconst execution = e.execution || {};\nconst workflow = e.workflow || {};\nconst message = e.error?.message || execution.error?.message || e.message || 'Unknown workflow failure';\nreturn [{json:{event:'workflow_failure',timestamp:new Date().toISOString(),workflow_name:workflow.name || e.workflow_name || 'unknown',workflow_id:workflow.id || e.workflow_id || 'unknown',execution_id:execution.id || e.execution_id || 'unknown',last_node:execution.lastNodeExecuted || e.last_node || 'unknown',error_message:String(message).slice(0,1000),execution_url:execution.url || '',severity:'high'}}];"
+      },
+      "id": "13c44db3-78af-425e-80ab-d2458a4c4633",
+      "name": "Normalize Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "e08850e1-83ed-40a4-bb5e-2a6c20eae8cf",
+              "leftValue": "={{ $json.monitoring_webhook_url || \"\" }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8a9901fd-b1a0-4880-99a7-694c2e8c8143",
+      "name": "Slack Webhook Configured?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MONITORING_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({text: \"n8n failure: \" + $json.workflow_name + \" | \" + $json.error_message + \" | Execution: \" + $json.execution_id}) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "6b7672ab-a68a-456a-b3e0-77db2ade233a",
+      "name": "Send Monitoring Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "f5837d48-5c59-4b23-ad5a-1f109ae35dfa",
+      "name": "No Alert URL - Inspect Executions",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        0,
+        208
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Failure": {
+      "main": [
+        [
+          {
+            "node": "Slack Webhook Configured?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Webhook Configured?": {
+      "main": [
+        [
+          {
+            "node": "Send Monitoring Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Alert URL - Inspect Executions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "107299d8-9f93-47a0-8f8c-6df498af5ceb",
+  "meta": {
+    "instanceId": "a03c7678428ef19ededbf912f16f7d5798ec7b9ab4c17f2a2def6a9e791e7215"
+  },
+  "nodeGroups": [],
+  "id": "WOThUzEX0BBifF2W",
+  "tags": []
+}
